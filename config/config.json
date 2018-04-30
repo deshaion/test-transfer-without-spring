@@ -1,0 +1,7 @@
+{
+    "url": "jdbc:hsqldb:mem:test?shutdown=true",
+    "driver_class": "org.hsqldb.jdbcDriver",
+    "user": "SA",
+    "password": "",
+    "max_pool_size": 30
+}
