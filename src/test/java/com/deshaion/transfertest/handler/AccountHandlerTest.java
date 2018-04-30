@@ -3,17 +3,19 @@ package com.deshaion.transfertest.handler;
 import com.deshaion.transfertest.Main;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Vertx;
-import io.vertx.core.http.HttpClient;
+import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
+import lombok.extern.log4j.Log4j2;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(VertxUnitRunner.class)
+@Log4j2
 public class AccountHandlerTest {
     private final static int PORT = 8080;
     private Vertx vertx;
@@ -41,12 +43,20 @@ public class AccountHandlerTest {
 
     @Test(timeout = 3000L)
     public void testAccountAdd(TestContext context) throws Exception {
-        HttpClient client = vertx.createHttpClient();
         Async async = context.async();
-        client.post(PORT, "localhost", "/api/1.0/accounts?name=Ivan&balance=100.0&currency=USD", response -> {
-            context.assertEquals(201, response.statusCode());
-            client.close();
-            async.complete();
-        }).end();
+        vertx.setTimer(100, id->{
+            HttpClientRequest request = vertx.createHttpClient()
+                .post(PORT, "localhost", "/api/1.0/accounts", response -> {
+                    response.bodyHandler(LOGGER::info);
+                    context.assertEquals(201, response.statusCode());
+                    async.complete();
+                });
+
+            String body = "name=Ivan&balance=100.0&currency=USD";
+            request.putHeader("content-length", String.valueOf(body.length()));
+            request.putHeader("content-type", "application/x-www-form-urlencoded");
+            request.write(body);
+            request.end();
+        });
     }
 }

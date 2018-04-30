@@ -8,10 +8,14 @@ import com.deshaion.transfertest.util.AppModule;
 import com.deshaion.transfertest.util.DaggerAppComponent;
 import com.deshaion.transfertest.util.LocalDateTimeSerializer;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+import io.reactivex.Completable;
+import io.vertx.core.Future;
 import io.vertx.core.Launcher;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import io.vertx.reactivex.core.AbstractVerticle;
+import io.vertx.reactivex.core.http.HttpServer;
+import io.vertx.reactivex.core.impl.AsyncResultCompletable;
 import io.vertx.reactivex.ext.jdbc.JDBCClient;
 import io.vertx.reactivex.ext.web.Router;
 import io.vertx.reactivex.ext.web.handler.BodyHandler;
@@ -19,7 +23,6 @@ import lombok.extern.log4j.Log4j2;
 
 import java.time.LocalDateTime;
 
-@Log4j2
 public class Main {
     public static void main(String[] args) {
         String[] vertxArgs = new String[args.length + 1];
@@ -63,13 +66,13 @@ public class Main {
             transferHandler.addRoutes(router);
             exceptionHandler.addRoutes(router);
 
-            vertx.createHttpServer().requestHandler(router::accept).listen(8080);
-            LOGGER.info("HTTP server started on port 8080");
-
-            createDbTables(jdbcClient);
+            createDbTables(jdbcClient).subscribe(() -> {
+                HttpServer httpServer = vertx.createHttpServer().requestHandler(router::accept).listen(config().getInteger("http.port", 8080));
+                LOGGER.info("HTTP server started on port {}", httpServer.actualPort());
+            });
         }
 
-        private void createDbTables(JDBCClient jdbcClient) {
+        private Completable createDbTables(JDBCClient jdbcClient) {
             final String SQL_CREATE = "CREATE TABLE account\n" +
                 "(\n" +
                 "    accountId INT PRIMARY KEY NOT NULL IDENTITY,\n" +
@@ -107,21 +110,32 @@ public class Main {
                 "CREATE INDEX AccountBalance_accountId_index ON accountbalance (accountId);" +
                 "CREATE UNIQUE INDEX Transfers_requestId_uindex ON transfer (requestId);";
 
-            jdbcClient.getConnection(conn -> {
-               if (conn.failed()) {
-                   throw new RuntimeException(conn.cause());
-               }
+            return new AsyncResultCompletable(handler -> {
+                Future<Void> future = Future.future();
+                future.setHandler(handler);
 
-               conn.result().execute(SQL_CREATE, res -> {
-                   if (res.failed()) {
-                       throw new RuntimeException(res.cause());
-                   }
+                jdbcClient.getConnection(conn -> {
+                    if (conn.failed()) {
+                        future.fail(conn.cause());
+                    }
 
-                   LOGGER.info("Tables have been created!");
-                   conn.result().execute(SQL_CREATE_INDEX, indexCompleted -> {
-                       LOGGER.info("Indexes have been created!");
-                   });
-               });
+                    conn.result().execute(SQL_CREATE, res -> {
+                        if (res.failed()) {
+                            future.fail(res.cause());
+                            return;
+                        }
+                        LOGGER.info("Tables have been created!");
+
+                        conn.result().execute(SQL_CREATE_INDEX, indexCompleted -> {
+                            if (indexCompleted.failed()) {
+                                future.fail(indexCompleted.cause());
+                                return;
+                            }
+                            LOGGER.info("Indexes have been created!");
+                            future.complete();
+                        });
+                    });
+                });
             });
         }
     }

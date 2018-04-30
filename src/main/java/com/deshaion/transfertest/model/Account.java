@@ -4,6 +4,7 @@ import io.vertx.core.json.JsonObject;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.ToString;
 import lombok.extern.log4j.Log4j2;
 
 import java.math.BigDecimal;
@@ -14,6 +15,7 @@ import java.time.format.DateTimeFormatter;
 @Getter
 @AllArgsConstructor
 @Log4j2
+@ToString
 public class Account {
     private String token;
     private String name;
