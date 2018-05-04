@@ -34,18 +34,18 @@ public class AccountsDaoImpl implements AccountsDao {
 
     private static final String SQL_QUERY = "SELECT Account.token, Account.name, Account.active, Account.created, Account.updated, " +
         "CAST(AccountBalance.balance AS VARCHAR(100)) Balance, AccountBalance.currency " +
-        "FROM Account, AccountBalance WHERE Account.token = ? AND Account.accountId = AccountBalance.accountId";
+        "FROM Account, AccountBalance WHERE Account.active AND Account.token = ? AND Account.accountId = AccountBalance.accountId";
 
     private static final String SQL_QUERY_ALL = "SELECT Account.token, Account.name, Account.active, Account.created, Account.updated, " +
         "CAST(AccountBalance.balance AS VARCHAR(100)) Balance, AccountBalance.currency " +
-        "FROM Account, AccountBalance WHERE Account.accountId = AccountBalance.accountId";
+        "FROM Account, AccountBalance WHERE Account.active AND Account.accountId = AccountBalance.accountId";
 
     private static final String SQL_UPDATE = "UPDATE account SET name = ?, active = ?, updated = NOW() WHERE token = ?";
-    private static final String SQL_DELETE = "DELETE FROM account WHERE token = ?";
-    private static final String SQL_DELETE_ALL = "DELETE FROM account";
+    private static final String SQL_DELETE = "UPDATE account SET active = false WHERE token = ?";
+    private static final String SQL_DELETE_ALL = "UPDATE account SET active = false";
 
     private static final String  SQL_UPDATE_BALANCE = "UPDATE AccountBalance SET balance = balance + (CAST(? AS DECIMAL(10,2))), updated = NOW() " +
-        "WHERE accountId = (SELECT accountId FROM account WHERE token = ?) AND balance + (CAST(? AS DECIMAL(10,2))) >= 0";
+        "WHERE accountId = (SELECT accountId FROM account WHERE active AND token = ?) AND balance + (CAST(? AS DECIMAL(10,2))) >= 0";
 
     @Override
     public Single<Account> insert(Account account) {
